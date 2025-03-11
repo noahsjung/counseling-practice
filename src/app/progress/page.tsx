@@ -1,7 +1,13 @@
 import DashboardNavbar from "@/components/dashboard-navbar";
 import { redirect } from "next/navigation";
 import { createClient } from "../../../supabase/server";
-import { BarChart, Calendar, CheckCircle, Clock, TrendingUp } from "lucide-react";
+import {
+  BarChart,
+  Calendar,
+  CheckCircle,
+  Clock,
+  TrendingUp,
+} from "lucide-react";
 
 export default async function ProgressPage() {
   const supabase = await createClient();
@@ -25,10 +31,12 @@ export default async function ProgressPage() {
   }
 
   // Calculate stats
-  const completedScenarios = progressData?.filter(item => item.completed) || [];
-  const totalPracticeTime = progressData?.reduce((total, item) => {
-    return total + (item.scenarios?.duration || 0);
-  }, 0) || 0;
+  const completedScenarios =
+    progressData?.filter((item) => item.completed) || [];
+  const totalPracticeTime =
+    progressData?.reduce((total, item) => {
+      return total + (item.scenarios?.duration || 0);
+    }, 0) || 0;
 
   // Sample data for charts (in a real app, this would be calculated from actual user data)
   const weeklyActivity = [
@@ -57,7 +65,9 @@ export default async function ProgressPage() {
           {/* Header Section */}
           <header className="flex flex-col gap-4">
             <h1 className="text-3xl font-bold">Your Progress</h1>
-            <p className="text-gray-600">Track your counseling skills development over time</p>
+            <p className="text-gray-600">
+              Track your counseling skills development over time
+            </p>
           </header>
 
           {/* Stats Overview */}
@@ -68,10 +78,12 @@ export default async function ProgressPage() {
               </div>
               <div>
                 <p className="text-sm text-gray-500">Completed Scenarios</p>
-                <p className="text-2xl font-bold">{completedScenarios.length}</p>
+                <p className="text-2xl font-bold">
+                  {completedScenarios.length}
+                </p>
               </div>
             </div>
-            
+
             <div className="bg-white rounded-xl p-6 border shadow-sm flex items-center gap-4">
               <div className="bg-teal-50 p-3 rounded-full">
                 <Clock className="h-5 w-5 text-teal-500" />
@@ -81,7 +93,7 @@ export default async function ProgressPage() {
                 <p className="text-2xl font-bold">{totalPracticeTime} min</p>
               </div>
             </div>
-            
+
             <div className="bg-white rounded-xl p-6 border shadow-sm flex items-center gap-4">
               <div className="bg-teal-50 p-3 rounded-full">
                 <Calendar className="h-5 w-5 text-teal-500" />
@@ -91,7 +103,7 @@ export default async function ProgressPage() {
                 <p className="text-2xl font-bold">3 days</p>
               </div>
             </div>
-            
+
             <div className="bg-white rounded-xl p-6 border shadow-sm flex items-center gap-4">
               <div className="bg-teal-50 p-3 rounded-full">
                 <TrendingUp className="h-5 w-5 text-teal-500" />
@@ -108,9 +120,12 @@ export default async function ProgressPage() {
             <h2 className="font-semibold text-xl mb-6">Weekly Activity</h2>
             <div className="h-64 flex items-end justify-between gap-2">
               {weeklyActivity.map((day) => (
-                <div key={day.day} className="flex flex-col items-center flex-1">
-                  <div 
-                    className="bg-teal-500 w-full rounded-t-md" 
+                <div
+                  key={day.day}
+                  className="flex flex-col items-center flex-1"
+                >
+                  <div
+                    className="bg-teal-500 w-full rounded-t-md"
                     style={{ height: `${day.count * 20}%` }}
                   ></div>
                   <p className="text-sm mt-2">{day.day}</p>
@@ -121,4 +136,30 @@ export default async function ProgressPage() {
 
           {/* Skill Breakdown */}
           <section className="bg-white rounded-xl p-6 border shadow-sm">
-            <h2 className="font-semibold text-xl mb
+            <h2 className="font-semibold text-xl mb-6">Skill Breakdown</h2>
+            <div className="space-y-4">
+              {skillCategories.map((skill) => (
+                <div key={skill.category} className="space-y-2">
+                  <div className="flex justify-between">
+                    <span className="text-sm font-medium">
+                      {skill.category}
+                    </span>
+                    <span className="text-sm text-gray-500">
+                      {skill.score}%
+                    </span>
+                  </div>
+                  <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-teal-500 rounded-full"
+                      style={{ width: `${skill.score}%` }}
+                    ></div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        </div>
+      </main>
+    </>
+  );
+}

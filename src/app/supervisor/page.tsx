@@ -16,19 +16,11 @@ export default async function SupervisorDashboard() {
     return redirect("/sign-in");
   }
 
-  // Check if user is a supervisor
-  const { data: userData, error: userError } = await supabase
-    .from("users")
-    .select("role")
-    .eq("id", user.id)
-    .single();
-
-  if (userError) {
-    console.error("Error fetching user data:", userError);
-  }
+  // Check if user is a supervisor from metadata
+  const isSupervisor = user.user_metadata?.role === "supervisor";
 
   // If not a supervisor, redirect to regular dashboard
-  if (!userData || userData.role !== "supervisor") {
+  if (!isSupervisor) {
     return redirect("/dashboard");
   }
 
@@ -36,7 +28,7 @@ export default async function SupervisorDashboard() {
   const { data: pendingResponses, error: responsesError } = await supabase
     .from("user_responses")
     .select(
-      "*, users!user_responses_user_id_fkey(full_name, email), scenarios!user_responses_scenario_id_fkey(title), scenario_segments!user_responses_segment_id_fkey(title)",
+      "*, scenarios!user_responses_scenario_id_fkey(title), scenario_segments!user_responses_segment_id_fkey(title)",
     )
     .is("supervisor_feedback", null)
     .order("created_at", { ascending: false });
@@ -45,11 +37,10 @@ export default async function SupervisorDashboard() {
     console.error("Error fetching responses:", responsesError);
   }
 
-  // Fetch counselors under supervision
+  // Fetch all users as potential counselors
   const { data: counselors, error: counselorsError } = await supabase
     .from("users")
     .select("id, full_name, email, created_at")
-    .eq("role", "counselor")
     .order("created_at", { ascending: false });
 
   if (counselorsError) {
@@ -164,9 +155,7 @@ export default async function SupervisorDashboard() {
                         key={response.id}
                         className="border-b hover:bg-gray-50"
                       >
-                        <td className="py-3 px-4">
-                          {response.users?.full_name || "Unknown"}
-                        </td>
+                        <td className="py-3 px-4">Unknown User</td>
                         <td className="py-3 px-4">
                           {response.scenarios?.title || "Unknown"}
                         </td>

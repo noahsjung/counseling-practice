@@ -80,7 +80,7 @@ export default async function ScenariosPage() {
                 <h2 className="font-semibold text-xl mb-6">{category}</h2>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {categoryScenarios.map((scenario) => (
+                  {categoryScenarios?.map((scenario) => (
                     <div
                       key={scenario.id}
                       className="border rounded-lg overflow-hidden hover:shadow-md transition-shadow"

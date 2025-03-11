@@ -3,13 +3,23 @@
 import DashboardNavbar from "@/components/dashboard-navbar";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { ArrowLeft, MessageSquare, Star, ThumbsDown, ThumbsUp } from "lucide-react";
+import {
+  ArrowLeft,
+  MessageSquare,
+  Star,
+  ThumbsDown,
+  ThumbsUp,
+} from "lucide-react";
 import Link from "next/link";
 import { createClient } from "../../../../../supabase/client";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
-export default function ReviewResponsePage({ params }: { params: { id: string } }) {
+export default function ReviewResponsePage({
+  params,
+}: {
+  params: { id: string };
+}) {
   const router = useRouter();
   const supabase = createClient();
   const [loading, setLoading] = useState(true);
@@ -30,7 +40,9 @@ export default function ReviewResponsePage({ params }: { params: { id: string } 
         setLoading(true);
 
         // Check user authentication
-        const { data: { user } } = await supabase.auth.getUser();
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
         if (!user) {
           router.push("/sign-in");
           return;
@@ -92,7 +104,6 @@ export default function ReviewResponsePage({ params }: { params: { id: string } 
 
         if (counselorError) throw new Error(counselorError.message);
         setCounselor(counselorData);
-
       } catch (err: any) {
         console.error("Error fetching data:", err);
         setError(err.message);
@@ -118,19 +129,18 @@ export default function ReviewResponsePage({ params }: { params: { id: string } 
         .update({
           supervisor_feedback: feedback,
           supervisor_rating: rating,
-          reviewed_at: new Date().toISOString()
+          reviewed_at: new Date().toISOString(),
         })
         .eq("id", params.id);
 
       if (updateError) throw new Error(updateError.message);
 
       setSuccess("Feedback submitted successfully!");
-      
+
       // Redirect after successful submission
       setTimeout(() => {
-        router.push('/supervisor');
+        router.push("/supervisor");
       }, 2000);
-
     } catch (err: any) {
       console.error("Error submitting feedback:", err);
       setError(err.message);
@@ -203,8 +213,10 @@ export default function ReviewResponsePage({ params }: { params: { id: string } 
 
           {/* Response details */}
           <div className="bg-white rounded-xl border shadow-sm p-6">
-            <h1 className="text-2xl font-bold mb-2">Review Counselor Response</h1>
-            
+            <h1 className="text-2xl font-bold mb-2">
+              Review Counselor Response
+            </h1>
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
               <div>
                 <h2 className="text-lg font-semibold mb-4">Response Details</h2>
@@ -223,13 +235,17 @@ export default function ReviewResponsePage({ params }: { params: { id: string } 
                   </div>
                   <div>
                     <p className="text-sm text-gray-500">Submitted</p>
-                    <p className="font-medium">{new Date(response?.created_at).toLocaleString()}</p>
+                    <p className="font-medium">
+                      {new Date(response?.created_at).toLocaleString()}
+                    </p>
                   </div>
                 </div>
               </div>
-              
+
               <div>
-                <h2 className="text-lg font-semibold mb-4">Segment Description</h2>
+                <h2 className="text-lg font-semibold mb-4">
+                  Segment Description
+                </h2>
                 <p className="text-gray-700">{segment?.description}</p>
               </div>
             </div>
@@ -238,36 +254,40 @@ export default function ReviewResponsePage({ params }: { params: { id: string } 
           {/* Video comparison */}
           <div className="bg-white rounded-xl border shadow-sm p-6">
             <h2 className="text-xl font-semibold mb-6">Response Comparison</h2>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <h3 className="font-medium mb-2 text-center">Counselor's Response</h3>
+                <h3 className="font-medium mb-2 text-center">
+                  Counselor's Response
+                </h3>
                 {response?.response_url && (
                   <div className="bg-black rounded-lg overflow-hidden">
-                    {response.response_url.includes('webm') ? (
-                      <video 
-                        src={response.response_url} 
-                        controls 
+                    {response.response_url.includes("webm") ? (
+                      <video
+                        src={response.response_url}
+                        controls
                         className="w-full aspect-video"
                       />
                     ) : (
-                      <audio 
-                        src={response.response_url} 
-                        controls 
+                      <audio
+                        src={response.response_url}
+                        controls
                         className="w-full p-4"
                       />
                     )}
                   </div>
                 )}
               </div>
-              
+
               <div>
-                <h3 className="font-medium mb-2 text-center">Expert Response</h3>
+                <h3 className="font-medium mb-2 text-center">
+                  Expert Response
+                </h3>
                 {expertResponse ? (
                   <div className="bg-black rounded-lg overflow-hidden">
-                    <video 
-                      src={expertResponse} 
-                      controls 
+                    <video
+                      src={expertResponse}
+                      controls
                       className="w-full aspect-video"
                     />
                   </div>
@@ -283,7 +303,58 @@ export default function ReviewResponsePage({ params }: { params: { id: string } 
           {/* Feedback form */}
           <div className="bg-white rounded-xl border shadow-sm p-6">
             <h2 className="text-xl font-semibold mb-6">Provide Feedback</h2>
-            
+
             <div className="space-y-6">
               <div>
-                <label className="block text-sm font-medium
+                <label className="block text-sm font-medium mb-2">Rating</label>
+                <div className="flex gap-2">
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <button
+                      key={star}
+                      type="button"
+                      onClick={() => setRating(star)}
+                      className={`p-1 rounded-full ${rating >= star ? "text-yellow-400" : "text-gray-300"}`}
+                    >
+                      <Star className="h-8 w-8 fill-current" />
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-2">
+                  Feedback Comments
+                </label>
+                <Textarea
+                  value={feedback}
+                  onChange={(e) => setFeedback(e.target.value)}
+                  placeholder="Provide constructive feedback on the counselor's response..."
+                  rows={6}
+                  className="w-full"
+                />
+              </div>
+
+              <div className="flex justify-end gap-4">
+                <Button
+                  variant="outline"
+                  onClick={() => router.push("/supervisor")}
+                  disabled={submitting}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleSubmitFeedback}
+                  className="bg-teal-600 hover:bg-teal-700 flex items-center gap-2"
+                  disabled={submitting}
+                >
+                  <MessageSquare className="h-4 w-4" />
+                  {submitting ? "Submitting..." : "Submit Feedback"}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </main>
+    </>
+  );
+}

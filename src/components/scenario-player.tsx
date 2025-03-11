@@ -29,6 +29,11 @@ export default function ScenarioPlayer({
   const [showResponsePrompt, setShowResponsePrompt] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
 
+  // Use a default video URL if none is provided
+  const actualVideoUrl =
+    videoUrl ||
+    "https://storage.googleapis.com/tempo-public-assets/sample-counseling-session.mp4";
+
   // Initialize video event listeners
   useEffect(() => {
     const video = videoRef.current;
@@ -133,9 +138,11 @@ export default function ScenarioPlayer({
       <div className="relative">
         <video
           ref={videoRef}
-          src={videoUrl}
+          src={actualVideoUrl}
           className="w-full aspect-video"
           onClick={togglePlay}
+          controls={false}
+          preload="auto"
         />
 
         {/* Response prompt overlay */}

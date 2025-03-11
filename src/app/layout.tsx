@@ -4,6 +4,7 @@ import "./globals.css";
 import Script from "next/script";
 import { TempoInit } from "@/components/tempo-init";
 import { ThemeProvider } from "@/components/theme-provider";
+import { BucketInitializer } from "./bucket-init-client";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -31,6 +32,7 @@ export default function RootLayout({
           {children}
         </ThemeProvider>
         <TempoInit />
+        <BucketInitializer />
       </body>
     </html>
   );

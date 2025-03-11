@@ -9,12 +9,38 @@ import {
   DropdownMenuTrigger,
 } from "./ui/dropdown-menu";
 import { Button } from "./ui/button";
-import { UserCircle, Home, Video, BookOpen, BarChart4 } from "lucide-react";
+import {
+  UserCircle,
+  Home,
+  Video,
+  BookOpen,
+  BarChart4,
+  Upload,
+  MessageSquare,
+} from "lucide-react";
 import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 
 export default function DashboardNavbar() {
   const supabase = createClient();
   const router = useRouter();
+  const [isSupervisor, setIsSupervisor] = useState(false);
+
+  useEffect(() => {
+    const checkUserRole = async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (user) {
+        // Check if user has supervisor role in user metadata
+        const isSupervisorFromMetadata =
+          user.user_metadata?.role === "supervisor";
+        setIsSupervisor(isSupervisorFromMetadata);
+      }
+    };
+
+    checkUserRole();
+  }, [supabase]);
 
   return (
     <nav className="w-full border-b border-gray-200 bg-white py-4">
@@ -54,6 +80,27 @@ export default function DashboardNavbar() {
             <BookOpen className="h-4 w-4" />
             <span>Resources</span>
           </Link>
+
+          {/* Supervisor-specific links */}
+          {isSupervisor && (
+            <>
+              <div className="h-6 w-px bg-gray-200"></div>
+              <Link
+                href="/supervisor/upload-scenario"
+                className="flex items-center gap-2 text-gray-600 hover:text-teal-600"
+              >
+                <Upload className="h-4 w-4" />
+                <span>Upload</span>
+              </Link>
+              <Link
+                href="/supervisor/responses"
+                className="flex items-center gap-2 text-gray-600 hover:text-teal-600"
+              >
+                <MessageSquare className="h-4 w-4" />
+                <span>Responses</span>
+              </Link>
+            </>
+          )}
         </div>
 
         <div className="flex gap-4 items-center">
@@ -64,8 +111,9 @@ export default function DashboardNavbar() {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem>Profile</DropdownMenuItem>
-              <DropdownMenuItem>Settings</DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href="/profile">Profile</Link>
+              </DropdownMenuItem>
               <DropdownMenuItem
                 onClick={async () => {
                   await supabase.auth.signOut();

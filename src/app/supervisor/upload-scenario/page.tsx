@@ -12,11 +12,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ArrowLeft, Plus, Trash, Upload } from "lucide-react";
+import { ArrowLeft, Plus, Trash, Upload, Video } from "lucide-react";
 import Link from "next/link";
 import { createClient } from "../../../../supabase/client";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { createRequiredBuckets } from "./create-buckets";
 
 interface Segment {
   id: string;
@@ -36,6 +37,7 @@ export default function UploadScenarioPage() {
   const [success, setSuccess] = useState<string | null>(null);
   const [user, setUser] = useState<any>(null);
   const [isAuthorized, setIsAuthorized] = useState(false);
+  const videoPreviewRef = useRef<HTMLVideoElement>(null);
 
   // Scenario form state
   const [title, setTitle] = useState("");
@@ -45,9 +47,10 @@ export default function UploadScenarioPage() {
   const [category, setCategory] = useState("");
   const [thumbnailFile, setThumbnailFile] = useState<File | null>(null);
   const [videoFile, setVideoFile] = useState<File | null>(null);
+  const [videoPreviewUrl, setVideoPreviewUrl] = useState<string | null>(null);
   const [segments, setSegments] = useState<Segment[]>([]);
 
-  // Check if user is authorized (supervisor)
+  // Check if user is authorized (supervisor) and create buckets
   useEffect(() => {
     const checkAuth = async () => {
       try {
@@ -61,20 +64,18 @@ export default function UploadScenarioPage() {
 
         setUser(user);
 
-        // Check if user is a supervisor
-        const { data: userData, error: userError } = await supabase
-          .from("users")
-          .select("role")
-          .eq("id", user.id)
-          .single();
+        // Check if user is a supervisor - check user metadata
+        const isSupervisorFromMetadata =
+          user.user_metadata?.role === "supervisor";
 
-        if (userError) throw new Error(userError.message);
+        if (isSupervisorFromMetadata) {
+          setIsAuthorized(true);
 
-        if (!userData || userData.role !== "supervisor") {
+          // Create required storage buckets
+          await createRequiredBuckets();
+        } else {
           setIsAuthorized(false);
           router.push("/dashboard");
-        } else {
-          setIsAuthorized(true);
         }
       } catch (err) {
         console.error("Error checking authorization:", err);
@@ -121,9 +122,17 @@ export default function UploadScenarioPage() {
   const handleFileChange = (
     e: React.ChangeEvent<HTMLInputElement>,
     setFile: React.Dispatch<React.SetStateAction<File | null>>,
+    isVideo = false,
   ) => {
     if (e.target.files && e.target.files.length > 0) {
-      setFile(e.target.files[0]);
+      const file = e.target.files[0];
+      setFile(file);
+
+      // Create preview URL for video
+      if (isVideo) {
+        const url = URL.createObjectURL(file);
+        setVideoPreviewUrl(url);
+      }
     }
   };
 
@@ -150,6 +159,23 @@ export default function UploadScenarioPage() {
     return `${mins}:${secs.toString().padStart(2, "0")}`;
   };
 
+  // Set segment time from video
+  const setSegmentTimeFromVideo = (
+    segmentId: string,
+    field: "start_time" | "end_time",
+  ) => {
+    const video = videoPreviewRef.current;
+    if (!video) return;
+
+    const currentTime = Math.floor(video.currentTime);
+
+    if (field === "start_time") {
+      updateSegment(segmentId, field, currentTime);
+    } else {
+      updateSegment(segmentId, field, currentTime);
+    }
+  };
+
   // Handle form submission
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -168,8 +194,9 @@ export default function UploadScenarioPage() {
 
       // Upload video file
       const videoFileName = `scenarios/${crypto.randomUUID()}_${videoFile.name}`;
+
       const { error: videoUploadError } = await supabase.storage
-        .from("scenario-videos")
+        .from("public")
         .upload(videoFileName, videoFile);
 
       if (videoUploadError) throw new Error(videoUploadError.message);
@@ -177,23 +204,24 @@ export default function UploadScenarioPage() {
       // Get video URL
       const {
         data: { publicUrl: videoUrl },
-      } = supabase.storage.from("scenario-videos").getPublicUrl(videoFileName);
+      } = supabase.storage.from("public").getPublicUrl(videoFileName);
 
       // Upload thumbnail if provided
       let thumbnailUrl = null;
       if (thumbnailFile) {
         const thumbnailFileName = `thumbnails/${crypto.randomUUID()}_${thumbnailFile.name}`;
+
+        // Create bucket if it doesn't exist (already handled above)
+
         const { error: thumbnailUploadError } = await supabase.storage
-          .from("scenario-thumbnails")
+          .from("public")
           .upload(thumbnailFileName, thumbnailFile);
 
         if (thumbnailUploadError) throw new Error(thumbnailUploadError.message);
 
         const {
           data: { publicUrl },
-        } = supabase.storage
-          .from("scenario-thumbnails")
-          .getPublicUrl(thumbnailFileName);
+        } = supabase.storage.from("public").getPublicUrl(thumbnailFileName);
 
         thumbnailUrl = publicUrl;
       }
@@ -222,17 +250,18 @@ export default function UploadScenarioPage() {
         let expertResponseUrl = null;
         if (segment.expert_response_file) {
           const expertFileName = `expert-responses/${crypto.randomUUID()}_${segment.expert_response_file.name}`;
+
+          // Create bucket if it doesn't exist (already handled above)
+
           const { error: expertUploadError } = await supabase.storage
-            .from("expert-responses")
+            .from("public")
             .upload(expertFileName, segment.expert_response_file);
 
           if (expertUploadError) throw new Error(expertUploadError.message);
 
           const {
             data: { publicUrl },
-          } = supabase.storage
-            .from("expert-responses")
-            .getPublicUrl(expertFileName);
+          } = supabase.storage.from("public").getPublicUrl(expertFileName);
 
           expertResponseUrl = publicUrl;
         }
@@ -257,7 +286,7 @@ export default function UploadScenarioPage() {
 
       // Reset form after successful submission
       setTimeout(() => {
-        router.push("/supervisor");
+        router.push("/scenarios");
       }, 2000);
     } catch (err: any) {
       console.error("Error uploading scenario:", err);
@@ -266,6 +295,15 @@ export default function UploadScenarioPage() {
       setLoading(false);
     }
   };
+
+  // Clean up object URLs when component unmounts
+  useEffect(() => {
+    return () => {
+      if (videoPreviewUrl) {
+        URL.revokeObjectURL(videoPreviewUrl);
+      }
+    };
+  }, [videoPreviewUrl]);
 
   if (!isAuthorized) {
     return (
@@ -403,7 +441,7 @@ export default function UploadScenarioPage() {
                       id="video"
                       type="file"
                       accept="video/*"
-                      onChange={(e) => handleFileChange(e, setVideoFile)}
+                      onChange={(e) => handleFileChange(e, setVideoFile, true)}
                       required
                     />
                     <p className="text-xs text-gray-500 mt-1">
@@ -413,6 +451,28 @@ export default function UploadScenarioPage() {
                   </div>
                 </div>
               </div>
+
+              {/* Video Preview */}
+              {videoPreviewUrl && (
+                <div className="border rounded-lg p-4">
+                  <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                    <Video className="h-5 w-5 text-teal-600" />
+                    Video Preview
+                  </h2>
+                  <div className="bg-black rounded-lg overflow-hidden">
+                    <video
+                      ref={videoPreviewRef}
+                      src={videoPreviewUrl}
+                      controls
+                      className="w-full aspect-video"
+                    />
+                  </div>
+                  <p className="text-sm text-gray-500 mt-2">
+                    Use this preview to set accurate segment start and end
+                    times.
+                  </p>
+                </div>
+              )}
 
               {/* Segments */}
               <div>
@@ -493,45 +553,81 @@ export default function UploadScenarioPage() {
                           <Label htmlFor={`segment-start-${segment.id}`}>
                             Start Time (mm:ss)
                           </Label>
-                          <Input
-                            id={`segment-start-${segment.id}`}
-                            value={secondsToTime(segment.start_time)}
-                            onChange={(e) =>
-                              updateSegment(
-                                segment.id,
-                                "start_time",
-                                timeToSeconds(e.target.value),
-                              )
-                            }
-                            placeholder="0:00"
-                            pattern="[0-9]+:[0-5][0-9]"
-                            required
-                          />
+                          <div className="flex gap-2">
+                            <Input
+                              id={`segment-start-${segment.id}`}
+                              value={secondsToTime(segment.start_time)}
+                              onChange={(e) =>
+                                updateSegment(
+                                  segment.id,
+                                  "start_time",
+                                  timeToSeconds(e.target.value),
+                                )
+                              }
+                              placeholder="0:00"
+                              pattern="[0-9]+:[0-5][0-9]"
+                              required
+                              className="flex-1"
+                            />
+                            {videoPreviewRef.current && (
+                              <Button
+                                type="button"
+                                size="sm"
+                                onClick={() =>
+                                  setSegmentTimeFromVideo(
+                                    segment.id,
+                                    "start_time",
+                                  )
+                                }
+                                className="bg-teal-600 hover:bg-teal-700"
+                              >
+                                Set Current
+                              </Button>
+                            )}
+                          </div>
                         </div>
 
                         <div>
                           <Label htmlFor={`segment-end-${segment.id}`}>
                             End Time (mm:ss, optional)
                           </Label>
-                          <Input
-                            id={`segment-end-${segment.id}`}
-                            value={
-                              segment.end_time
-                                ? secondsToTime(segment.end_time)
-                                : ""
-                            }
-                            onChange={(e) =>
-                              updateSegment(
-                                segment.id,
-                                "end_time",
-                                e.target.value
-                                  ? timeToSeconds(e.target.value)
-                                  : null,
-                              )
-                            }
-                            placeholder="0:00"
-                            pattern="[0-9]+:[0-5][0-9]"
-                          />
+                          <div className="flex gap-2">
+                            <Input
+                              id={`segment-end-${segment.id}`}
+                              value={
+                                segment.end_time
+                                  ? secondsToTime(segment.end_time)
+                                  : ""
+                              }
+                              onChange={(e) =>
+                                updateSegment(
+                                  segment.id,
+                                  "end_time",
+                                  e.target.value
+                                    ? timeToSeconds(e.target.value)
+                                    : null,
+                                )
+                              }
+                              placeholder="0:00"
+                              pattern="[0-9]+:[0-5][0-9]"
+                              className="flex-1"
+                            />
+                            {videoPreviewRef.current && (
+                              <Button
+                                type="button"
+                                size="sm"
+                                onClick={() =>
+                                  setSegmentTimeFromVideo(
+                                    segment.id,
+                                    "end_time",
+                                  )
+                                }
+                                className="bg-teal-600 hover:bg-teal-700"
+                              >
+                                Set Current
+                              </Button>
+                            )}
+                          </div>
                         </div>
 
                         <div className="flex items-center gap-2">
@@ -552,44 +648,47 @@ export default function UploadScenarioPage() {
                             htmlFor={`segment-pause-${segment.id}`}
                             className="cursor-pointer"
                           >
-                            Pause Point (requires counselor response)
+                            Pause Point (for user response)
                           </Label>
                         </div>
 
-                        {segment.pause_point && (
-                          <div>
-                            <Label htmlFor={`segment-expert-${segment.id}`}>
-                              Expert Response Video
-                            </Label>
-                            <Input
-                              id={`segment-expert-${segment.id}`}
-                              type="file"
-                              accept="video/*"
-                              onChange={(e) =>
-                                handleExpertResponseFile(e, segment.id)
-                              }
-                            />
-                            <p className="text-xs text-gray-500 mt-1">
-                              Upload an expert's response to this segment
-                              (optional)
-                            </p>
-                          </div>
-                        )}
+                        <div>
+                          <Label htmlFor={`segment-expert-${segment.id}`}>
+                            Expert Response Video (optional)
+                          </Label>
+                          <Input
+                            id={`segment-expert-${segment.id}`}
+                            type="file"
+                            accept="video/*"
+                            onChange={(e) =>
+                              handleExpertResponseFile(e, segment.id)
+                            }
+                          />
+                          <p className="text-xs text-gray-500 mt-1">
+                            Upload a video showing the expert response for this
+                            segment
+                          </p>
+                        </div>
                       </div>
                     </div>
                   ))}
                 </div>
               </div>
 
-              {/* Submit Button */}
-              <div className="flex justify-end">
+              <div className="pt-6 border-t flex justify-end">
                 <Button
                   type="submit"
                   className="bg-teal-600 hover:bg-teal-700 flex items-center gap-2"
                   disabled={loading}
                 >
-                  <Upload className="h-4 w-4" />
-                  {loading ? "Uploading..." : "Upload Scenario"}
+                  {loading ? (
+                    "Uploading..."
+                  ) : (
+                    <>
+                      <Upload className="h-4 w-4" />
+                      Upload Scenario
+                    </>
+                  )}
                 </Button>
               </div>
             </form>
