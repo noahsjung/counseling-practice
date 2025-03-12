@@ -24,14 +24,18 @@ export default async function SupervisorDashboard() {
     return redirect("/dashboard");
   }
 
-  // Fetch pending responses that need review
-  const { data: pendingResponses, error: responsesError } = await supabase
+  // Fetch all responses without filtering by supervisor_feedback
+  const { data: allResponses, error: responsesError } = await supabase
     .from("user_responses")
     .select(
       "*, scenarios!user_responses_scenario_id_fkey(title), scenario_segments!user_responses_segment_id_fkey(title)",
     )
-    .is("supervisor_feedback", null)
     .order("created_at", { ascending: false });
+
+  // Filter responses client-side to avoid column errors
+  const pendingResponses = allResponses?.filter(
+    (response) => !response.notes?.includes("[REVIEWED]"),
+  );
 
   if (responsesError) {
     console.error("Error fetching responses:", responsesError);

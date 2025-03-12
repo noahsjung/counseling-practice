@@ -178,6 +178,9 @@ export default function PracticePage({ params }: { params: { id: string } }) {
 
       if (videoRef.current && type === "video") {
         videoRef.current.srcObject = stream;
+        videoRef.current
+          .play()
+          .catch((err) => console.error("Error playing video:", err));
       }
 
       // Create media recorder
@@ -448,6 +451,9 @@ export default function PracticePage({ params }: { params: { id: string } }) {
                           autoPlay
                           muted
                           className="w-full aspect-video"
+                          style={{
+                            transform: "scaleX(-1)",
+                          }} /* Mirror the video for a more natural self-view */
                         />
                       </div>
                     )}
@@ -590,14 +596,48 @@ export default function PracticePage({ params }: { params: { id: string } }) {
                 >
                   Previous Segment
                 </Button>
-                <Button
-                  onClick={goToNextSegment}
-                  disabled={
-                    currentSegmentIndex === segments.length - 1 || isRecording
-                  }
-                >
-                  Next Segment
-                </Button>
+                {segments.length > 1 &&
+                currentSegmentIndex < segments.length - 1 ? (
+                  <Button onClick={goToNextSegment} disabled={isRecording}>
+                    Next Segment
+                  </Button>
+                ) : (
+                  <Button
+                    onClick={async () => {
+                      if (recordedVideo) {
+                        await saveRecording();
+                      }
+
+                      // Update user progress to mark scenario as completed
+                      try {
+                        const {
+                          data: { user },
+                        } = await supabase.auth.getUser();
+                        if (user) {
+                          await supabase.from("user_progress").upsert({
+                            user_id: user.id,
+                            scenario_id: params.id,
+                            completed: true,
+                            completion_date: new Date().toISOString(),
+                          });
+
+                          setFeedback(
+                            "Congratulations! You've completed this scenario.",
+                          );
+                          setTimeout(() => {
+                            router.push(`/scenarios/${params.id}`);
+                          }, 2000);
+                        }
+                      } catch (err) {
+                        console.error("Error completing scenario:", err);
+                      }
+                    }}
+                    disabled={isRecording}
+                    className="bg-green-600 hover:bg-green-700"
+                  >
+                    Complete Scenario
+                  </Button>
+                )}
               </div>
             </div>
           )}

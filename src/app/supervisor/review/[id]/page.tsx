@@ -35,6 +35,8 @@ export default function ReviewResponsePage({
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
+    // No need to add columns, we'll use the notes field instead
+
     const fetchData = async () => {
       try {
         setLoading(true);
@@ -48,16 +50,10 @@ export default function ReviewResponsePage({
           return;
         }
 
-        // Check if user is a supervisor
-        const { data: userData, error: userError } = await supabase
-          .from("users")
-          .select("role")
-          .eq("id", user.id)
-          .single();
+        // Check if user is a supervisor from user metadata
+        const isSupervisor = user.user_metadata?.role === "supervisor";
 
-        if (userError) throw new Error(userError.message);
-
-        if (!userData || userData.role !== "supervisor") {
+        if (!isSupervisor) {
           router.push("/dashboard");
           return;
         }
@@ -95,15 +91,49 @@ export default function ReviewResponsePage({
         setSegment(segmentData);
         setExpertResponse(segmentData.expert_response_url);
 
-        // Fetch counselor details
-        const { data: counselorData, error: counselorError } = await supabase
-          .from("users")
-          .select("*")
-          .eq("id", responseData.user_id)
-          .single();
+        // Fetch counselor details using the API endpoint
+        try {
+          const counselorResponse = await fetch(
+            `/api/get-user-details?userId=${responseData.user_id}`,
+          );
+          const counselorResult = await counselorResponse.json();
 
-        if (counselorError) throw new Error(counselorError.message);
-        setCounselor(counselorData);
+          if (counselorResult.success) {
+            // Use either the public user data or auth user data
+            const userData =
+              counselorResult.data.public ||
+              (counselorResult.data.auth
+                ? {
+                    full_name:
+                      counselorResult.data.auth.user.user_metadata?.full_name ||
+                      "Unknown User",
+                    email: counselorResult.data.auth.user.email,
+                  }
+                : null);
+
+            setCounselor(
+              userData || {
+                full_name: "Unknown User",
+                email: responseData.user_id,
+              },
+            );
+          } else {
+            console.error(
+              "Error fetching counselor details:",
+              counselorResult.error,
+            );
+            setCounselor({
+              full_name: "Unknown User",
+              email: responseData.user_id,
+            });
+          }
+        } catch (err) {
+          console.error("Error fetching counselor details:", err);
+          setCounselor({
+            full_name: "Unknown User",
+            email: responseData.user_id,
+          });
+        }
       } catch (err: any) {
         console.error("Error fetching data:", err);
         setError(err.message);
@@ -123,17 +153,30 @@ export default function ReviewResponsePage({
         throw new Error("Please provide feedback");
       }
 
-      // Update the response with feedback and rating
+      // First check if the columns exist by doing a select
+      const { data: responseData, error: selectError } = await supabase
+        .from("user_responses")
+        .select("*")
+        .eq("id", params.id)
+        .single();
+
+      if (selectError) {
+        throw new Error(selectError.message);
+      }
+
+      // Just update the notes field with the feedback and a [REVIEWED] tag
+      const notesWithFeedback = `[REVIEWED] Rating: ${rating}/5\n\nFeedback: ${feedback}\n\n${responseData.notes || ""}`;
+
       const { error: updateError } = await supabase
         .from("user_responses")
         .update({
-          supervisor_feedback: feedback,
-          supervisor_rating: rating,
-          reviewed_at: new Date().toISOString(),
+          notes: notesWithFeedback,
         })
         .eq("id", params.id);
 
-      if (updateError) throw new Error(updateError.message);
+      if (updateError) {
+        throw new Error(updateError.message);
+      }
 
       setSuccess("Feedback submitted successfully!");
 

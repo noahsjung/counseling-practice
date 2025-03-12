@@ -23,6 +23,9 @@ export default async function SupervisorResponsesPage() {
     return redirect("/dashboard");
   }
 
+  // Log user metadata for debugging
+  console.log("User metadata:", user.user_metadata);
+
   // Fetch all responses that need review
   const { data: pendingResponses, error: responsesError } = await supabase
     .from("user_responses")
@@ -35,11 +38,15 @@ export default async function SupervisorResponsesPage() {
     console.error("Error fetching responses:", responsesError);
   }
 
-  // Group responses by reviewed status
+  // Group responses by reviewed status using notes field
   const reviewedResponses =
-    pendingResponses?.filter((response) => response.supervisor_feedback) || [];
+    pendingResponses?.filter((response) =>
+      response.notes?.includes("[REVIEWED]"),
+    ) || [];
   const unreviewedResponses =
-    pendingResponses?.filter((response) => !response.supervisor_feedback) || [];
+    pendingResponses?.filter(
+      (response) => !response.notes?.includes("[REVIEWED]"),
+    ) || [];
 
   return (
     <>
@@ -75,7 +82,11 @@ export default async function SupervisorResponsesPage() {
                         key={response.id}
                         className="border-b hover:bg-gray-50"
                       >
-                        <td className="py-3 px-4">Unknown User</td>
+                        <td className="py-3 px-4">
+                          {response.user_id
+                            ? response.user_id.substring(0, 8) + "..."
+                            : "Unknown User"}
+                        </td>
                         <td className="py-3 px-4">
                           {response.scenarios?.title || "Unknown"}
                         </td>
@@ -132,15 +143,13 @@ export default async function SupervisorResponsesPage() {
                           {response.scenario_segments?.title || "Unknown"}
                         </td>
                         <td className="py-3 px-4">
-                          {response.supervisor_rating
-                            ? `${response.supervisor_rating}/5`
+                          {response.notes?.match(/Rating: (\d)\/5/)
+                            ? response.notes.match(/Rating: (\d)\/5/)[1] + "/5"
                             : "-"}
                         </td>
                         <td className="py-3 px-4">
-                          {response.reviewed_at
-                            ? new Date(
-                                response.reviewed_at,
-                              ).toLocaleDateString()
+                          {response.updated_at
+                            ? new Date(response.updated_at).toLocaleDateString()
                             : "-"}
                         </td>
                         <td className="py-3 px-4">
